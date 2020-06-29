@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stocks</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Roboto+Mono&family=Roboto:wght@500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.1/css/all.min.css" />
+    <style>
+        /* Common */
+        * {
+            padding: 0;
+            margin: 0;
+            font-family: 'Open Sans', sans-serif;
+            box-sizing: border-box;
+        }
+
+        .table {
+            display: table;
+            width: 100%;
+        }
+
+        .table .tbl-header, .table .tbl-row {
+            display: table-row;
+        }
+
+        .table .tbl-header p {
+            display: table-cell;
+            font-weight: 500;
+            padding: 5px;
+            border-bottom: 5px solid #aaa;
+        }
+
+        .table .tbl-row p {
+            display: table-cell;
+            padding: 5px;
+            border-bottom: 1px solid #aaa;
+        }
+
+        .tick.up {
+            color: #6BBA70;
+        }
+
+        .tick.down {
+            color: #FF1A00;
+        }
+
+        /* Layout */
+        body {
+            font-size: 16px;
+        }
+
+        .header {
+            padding: 15px;
+            background-color: #36393D;
+            color: #fff;
+        }
+
+        .content {
+            background-color: #F9F7ED;
+            height: calc(100vh - 258px);
+        }
+
+        .widget-row {
+            min-height: 100px;
+            display: grid;
+            grid-template-columns: 50% 50%;
+            height: 50%;
+        }
+
+        .widget {
+            padding: 15px;
+        }
+
+        .widget h3 {
+            /* background-color: #356AA0; */
+            background-color: #f47b20;
+            padding: 5px;
+            text-align: center;
+            color: #fff;
+            border-radius: 4px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .widget-content {
+            height: calc(100% - 50px);
+            overflow: auto;
+        }
+        /* logger */
+        .logs {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 200px;
+            background-color: #36393D;
+            color: #fff;
+        }
+
+        .logs pre {
+            width: 100%;
+            padding: 15px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: .8em;
+            height: 100%;
+            overflow: auto;
+        }
+
+        .logs pre span {
+            display: inline-block;
+            margin-right: 5px;
+            color: #fff;
+            padding: 5px 10px;
+            margin-bottom: 3px;
+            border-radius: 4px;
+        }
+
+        .logs pre span.ok {
+            background-color: #006E2E;
+        }
+
+        .logs pre span.warn {
+            background-color: #FF7400;
+        }
+
+        .logs pre span.error {
+            background-color: #D01F3C;
+        }
+
+        .logs pre span.msg {
+            background-color: #3F4C6B;
+        }
+
+        /* Widget: Trades */
+        #trades .widget-content {
+            padding: 15px;
+            color: #36393D;
+            height: auto;
+        }
+
+        #trades h2 {
+            font-size: 8em;
+            line-height: 1em;
+        }
+
+        #trades p {
+            font-size: 2em;
+        }
+
+        #trades .tick-diff {
+            font-size: .75em;
+            color: #aaa;
+        }
+
+        /* Widget: Orderbook */
+        #order-book .widget-content {
+            display: grid;
+            grid-template-columns: 50% 50%;
+        }
+
+        #order-book h4 {
+            text-align: center;
+        }
+
+        #order-book .widget-content > div:nth-child(1) {
+            padding-right: 5px;
+        }
+
+        #order-book .widget-content > div:nth-child(2) {
+            padding-left: 5px;
+        }
+
+        #order-book p {
+            text-align: right;
+        }
+
+        /* Widget: Trade history */
+        #trade-history p {
+            text-align: right;
+        }
+
+        /* Widget: Orderbook history */
+        #order-book-history .tbl-row p:nth-child(2), #order-book-history .tbl-row p:nth-child(5) {
+            text-transform: uppercase;
+        }
+
+        #order-book-history p:nth-child(1), #order-book-history p:nth-child(3), #order-book-history p:nth-child(4) {
+            text-align: right;
+        }
+        #order-book-history p:nth-child(4) {
+            text-align: center;
+        }
+
+        #order-book-history p.status.matched {
+            color: #6BBA70;
+        }
+
+        #order-book-history p.status.removed {
+            color: #FF1A00;
+        }
+    </style>
+</head>
+<body>
+    <section class="header">
+        <h1>Trades and Orderbook - WSO2</h1>
+    </section>
+    <section class="content">
+        <div class="widget-row">
+            <div class="widget" id="trades">
+                <h3>Trades</h3>
+                <div class="widget-content">
+                    <h2 class="symbol">WSO2</h2>
+                    <p class="info"><strong></strong> <span class="tick"><i class="fas fa-caret"></i></span> <span class="tick-diff"></span></p>
+                </div>
+            </div>
+            <div class="widget" id="order-book">
+                <h3>Order Book</h3>
+                <div class="widget-content">
+                    <div class="sell-list">
+                        <h4>Sell</h4>
+                        <div class="table" id="order-sell-table">
+                            <div class="tbl-header">
+                                <p>ID</p>
+                                <p>Price ($)</p>
+                                <p>Volume</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="buy-list">
+                        <h4>Buy</h4>
+                        <div class="table" id="order-buy-table">
+                            <div class="tbl-header">
+                                <p>ID</p>
+                                <p>Price ($)</p>
+                                <p>Volume</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="widget-row">
+            <div class="widget" id="trade-history">
+                <h3>Trade History</h3>
+                <div class="widget-content">
+                    <div class="table">
+                        <div class="tbl-header">
+                            <p>Price ($)</p>
+                            <p>Volume</p>
+                            <p>Change ($)</p>
+                            <p>S. ID</p>
+                            <p>B. ID</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="widget" id="order-book-history">
+                <h3>Order History</h3>
+                <div class="widget-content">
+                    <div class="table">
+                        <div class="tbl-header">
+                            <p>ID</p>
+                            <p>Type</p>
+                            <p>Price ($)</p>
+                            <p>Volume</p>
+                            <p>Status</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="logs">
+        <pre></pre>
+    </section>
+
+    <script type="text/x-handlebars-template" id="hb-orderbook">
+        <div class="sell-list">
+            <h4>Sell</h4>
+            <div class="table" id="order-sell-table">
+                <div class="tbl-header">
+                    <p>ID</p>
+                    <p>Price ($)</p>
+                    <p>Volume</p>
+                </div>
+                {{#each .}}
+                {{#if isSell}}
+                <div class="tbl-row" data-id="{{id}}">
+                    <p>{{id}}</p>
+                    <p>{{price}}</p>
+                    <p>{{volume}}</p>
+                </div>
+                {{/if}}
+                {{/each}}
+            </div>
+        </div>
+        <div class="buy-list">
+            <h4>Buy</h4>
+            <div class="table" id="order-buy-table">
+                <div class="tbl-header">
+                    <p>ID</p>
+                    <p>Price ($)</p>
+                    <p>Volume</p>
+                </div>
+                {{#each .}}
+                {{#unless isSell}}
+                <div class="tbl-row" data-id="{{id}}">
+                    <p>{{id}}</p>
+                    <p>{{price}}</p>
+                    <p>{{volume}}</p>
+                </div>
+                {{/unless}}
+                {{/each}}
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-handlebars-template" id="hb-trades">
+        <h2 class="symbol">{{symbol}}</h2>
+        <p class="info"><strong>${{price}}</strong> <span class="tick {{tick}}"><i class="fas fa-caret-{{tick}}"></i></span> <span class="tick-diff">{{diff}}</span></p>
+    </script>
+
+    <script type="text/x-handlebars-template" id="hb-trade-history">
+        <div class="table">
+            <div class="tbl-header">
+                <p>Price ($)</p>
+                <p>Volume</p>
+                <p>Change ($)</p>
+                <p>S. ID</p>
+                <p>B. ID</p>
+            </div>
+            {{#each .}}
+            <div class="tbl-row" data-id="{{id}}">
+                <p>{{price}}</p>
+                <p>{{volume}}</p>
+                <p>{{diff}} <span class="tick {{tick}}"><i class="fas fa-caret-{{tick}}"></i></span></p>
+                <p>{{sellOrderId}}</p>
+                <p>{{buyOrderId}}</p>
+            </div>
+            {{/each}}
+        </div>
+    </script>
+
+    <script type="text/x-handlebars-template" id="hb-order-history">
+        <div class="table">
+            <div class="tbl-header">
+                <p>ID</p>
+                <p>Type</p>
+                <p>Price ($)</p>
+                <p>Volume</p>
+                <p>Status</p>
+            </div>
+            {{#each .}}
+            <div class="tbl-row">
+                <p>{{id}}</p>
+                <p>{{type}}</p>
+                <p>{{price}}</p>
+                <p>{{volume}}</p>
+                <p class="status {{status}}">{{status}}</p>
+            </div>
+            {{/each}}
+        </div>
+    </script>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.7.6/handlebars.min.js"></script>
+    <script>
+
+        $(document).ready(function() {
+            class Logger {
+                constructor(pre) {
+                    this.pre = pre;
+                }
+
+                ok(msg) {
+                    this.__appendLog('<span class="ok">STATUS >>></span>' + msg)
+                }
+
+                warn(msg) {
+                    this.__appendLog('<span class="warn">STATUS >>></span>' + msg)
+                }
+
+                error(msg) {
+                    this.__appendLog('<span class="error">STATUS >>></span>' + msg)
+                }
+
+                message(msg) {
+                    this.__appendLog('<span class="msg">INCOMING >>></span>' + msg)
+                }
+
+                __appendLog(msg) {
+                    this.pre.html(this.pre.html() + '\n' + msg);
+                    this.pre[0].scrollTo(0, this.pre[0].scrollHeight);
+                }
+            }
+
+            class Utils {
+                static parseQueryString() {
+                    let qs = location.search.substr(1);
+                    let map = {}
+                    let tokens = qs.split('&');
+                    for (let i = 0; i < tokens.length; i++) {
+                        let parts = tokens[i].split('=');
+                        map[parts[0]] = parts[1];
+                    }
+                    return map;
+                }
+
+                static formatNumber(n, appendDecimal) {
+                    n = n.toFixed(2);
+                    let s = String(n)
+                    let decimal = s.substr(s.length - 2);
+                    let integral = s.substr(0, s.length - 3);
+                    let i = integral.length % 3;
+                    let arr = [integral.substr(0, i)];
+                    for (let i = integral.length % 3; i < integral.length; i += 3) {
+                        arr.push(integral.substr(i, 3));
+                    }
+
+                    if (arr.length === 0) {
+                        arr.push('0');
+                    }
+
+                    if (appendDecimal) {
+                        return arr.join(',') + '.' + decimal;
+                    }
+                    return arr.join(',');
+                }
+            }
+
+            const
+                pre = $('pre'),
+                logger = new Logger(pre),
+                URLS = {
+                    orderbook: 'ws://localhost:9099/orderbook/1.0.0',
+                    trades: 'ws://localhost:9099/trades/1.0.0'
+                },
+                templates = {
+                    ORDER_BOOK: Handlebars.compile($('#hb-orderbook').html()),
+                    TRADES: Handlebars.compile($('#hb-trades').html()),
+                    TRADE_HISTORY: Handlebars.compile($('#hb-trade-history').html()),
+                    ORDER_HISTORY: Handlebars.compile($('#hb-order-history').html())
+                },
+                trades = [],
+                orders = {},
+                previousOrders = [];
+
+            function initWSClient(url, cb) {
+                let ws = undefined;
+                try {
+                    ws = new WebSocket(url);
+                } catch(e) {
+                    logger.error(e);
+                    return;
+                }
+
+                ws.onopen = function() {
+                    logger.ok('Connected to ' + url);
+                };
+
+                ws.onmessage = function(msg) {
+                    logger.message(msg.data);
+                    cb(JSON.parse(msg.data));
+                };
+
+                ws.onclose = function() {
+                    logger.warn('Connection closed [URL: ' + url + ']');
+                };
+                return ws;
+            }
+
+            initWSClient(URLS.orderbook + '?access_token=' + Utils.parseQueryString().token, function(data) {
+                let { id, price, volume, orderType, operation } = data.event;
+                let order = {
+                    id,
+                    price: Utils.formatNumber(price, true),
+                    volume: Utils.formatNumber(volume),
+                    isSell: orderType === 's'
+                };
+                if (operation === 'insert' || operation === 'update') {
+                    orders[id] = order;
+                } else if (operation === 'delete') {
+                    order.type = orderType === 's' ? 'sell' : 'buy',
+                    order.status = 'removed';
+                    previousOrders.push(order);
+                    delete orders[id];
+                }
+                $('#order-book .widget-content').html(templates.ORDER_BOOK(orders));
+                $('#order-book-history .widget-content').html(templates.ORDER_HISTORY(previousOrders));
+            });
+
+            initWSClient(URLS.trades + '?access_token=' + Utils.parseQueryString().token, function (data) {
+                let { symbol, price, volume, tick, sellOrderId, buyOrderId } = data.event;
+                let trade = {
+                    symbol,
+                    price: Utils.formatNumber(price, true),
+                    volume,
+                    tick: tick > 0 ? 'up' : 'down',
+                    diff: Utils.formatNumber(tick, true),
+                    sellOrderId,
+                    buyOrderId
+                };
+                trades.push(trade);
+                $('#trades .widget-content').html(templates.TRADES(trade));
+                $('#trade-history .widget-content').html(templates.TRADE_HISTORY(trades));
+            });
+        });
+    </script>
+
+</body>
+</html>

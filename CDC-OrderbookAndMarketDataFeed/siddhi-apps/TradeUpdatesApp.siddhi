@@ -1,0 +1,32 @@
+@App:name("TradeUpdatesApp")
+
+
+define trigger trgInitialTrade at 'start';
+
+@source(type='cdc',
+    url='jdbc:sqlserver://localhost:1433;databaseName=stocksDB;', 
+    username='sa', 
+    password='test@123', 
+    table.name='dbo.Trades', 
+    operation='insert', 
+    database.server.name='localhost\default', 
+    connector.properties='snapshot.mode=initial_schema_only',
+    @map(type='keyvalue', fail.on.missing.attribute='false'))
+define stream NewTradeStream(symbol string, volume double, currentPrice double, sellOrderId int, buyOrderId int);
+
+@sink(type='websocket-server', host='localhost', port='8831', 
+    @map(type='json')) 
+define stream TradeOutputStream (symbol string, price double, volume double, tick double, sellOrderId int, buyOrderId int);
+
+@info(name='initialTradeQuery') 
+from trgInitialTrade
+select 'WSO2' as symbol, 0d as volume, 0d as currentPrice, -1 as sellOrderId, -1 as buyOrderId
+insert into NewTradeStream;
+
+partition with(symbol of NewTradeStream)
+begin
+    @info(name='priceDiffCalculationQuery') 
+    from every(e1=NewTradeStream) -> e2=NewTradeStream
+    select e2.symbol, e2.currentPrice as price, e2.volume, (e2.currentPrice - e1.currentPrice) as tick, e2.sellOrderId, e2.buyOrderId
+    insert into TradeOutputStream;
+end

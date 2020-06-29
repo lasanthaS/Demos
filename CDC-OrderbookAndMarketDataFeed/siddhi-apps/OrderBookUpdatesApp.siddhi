@@ -1,0 +1,59 @@
+@App:name("OrderBookUpdatesApp")
+
+
+@source(type='cdc',
+    url='jdbc:sqlserver://localhost:1433;databaseName=stocksDB;', 
+    username='sa', 
+    password='test@123', 
+    table.name='dbo.OrderBook', 
+    operation='insert', 
+    database.server.name='localhost\default', 
+    connector.properties='snapshot.mode=initial_schema_only',
+    @map(type='keyvalue', fail.on.missing.attribute='false'))
+@sink(type='inMemory', topic='orderbook') 
+define stream NewOrderStream (id int, symbol string, price double, volume double, orderType string);
+
+@source(type='cdc',
+    url='jdbc:sqlserver://localhost:1433;databaseName=stocksDB;', 
+    username='sa', 
+    password='test@123', 
+    table.name='dbo.OrderBook', 
+    operation='update', 
+    database.server.name='localhost\default', 
+    connector.properties='snapshot.mode=initial_schema_only',
+    @map(type='keyvalue', fail.on.missing.attribute='false'))
+@sink(type='inMemory', topic='orderbook') 
+define stream UpdatedOrderStream(id int, symbol string, price double, volume double, orderType string);
+
+@source(type='cdc',
+    url='jdbc:sqlserver://localhost:1433;databaseName=stocksDB;', 
+    username='sa', 
+    password='test@123', 
+    table.name='dbo.OrderBook', 
+    operation='delete', 
+    database.server.name='localhost\default', 
+    connector.properties='snapshot.mode=initial_schema_only',
+    @map(type='keyvalue', fail.on.missing.attribute='false', 
+        @attributes(id='before_id', symbol='before_symbol', price='before_price', volume='before_volume', orderType='before_orderType')))
+define stream DeletedOrderStream(id int, symbol string, price double, volume double, orderType string);
+
+@sink(type='websocket-server', host='localhost', port='8830', 
+    @map(type='json')) 
+define stream OrderOutputStream (operation string, id int, symbol string, price double, volume double, orderType string);
+
+@info(name='insertOrderQuery') 
+from NewOrderStream
+select 'insert' as operation, id, symbol, price, volume, orderType
+insert into OrderOutputStream;
+
+@info(name='updateOrderQuery') 
+from UpdatedOrderStream
+select 'update' as operation, id, symbol, price, volume, orderType
+insert into OrderOutputStream;
+
+@info(name='deleteOrderQuery') 
+from DeletedOrderStream
+select 'delete' as operation, id, symbol, price, volume, orderType
+insert into OrderOutputStream;
+
+

@@ -1,0 +1,48 @@
+@App:name("StockMatchingEngineApp")
+
+
+@source(type='inMemory' , topic='orderbook') 
+define stream OrderInputStream (id int, symbol string, price double, volume double, orderType string);
+
+@sink(type='log') 
+define stream OrderStream (id int, symbol string, price double, volume double, orderType string, expectedOrderType string);
+
+@sink(type='log') 
+define stream MatchedOrderStream(id int, matchedId int, symbol string, volume double, price double, orderType string);
+
+@store(type='rdbms', 
+    jdbc.url='jdbc:sqlserver://localhost:1433;databaseName=stocksDB;', 
+    username='sa', 
+    password='test@123',
+    jdbc.driver.name='com.microsoft.sqlserver.jdbc.SQLServerDriver') 
+define table OrderBook (id int, symbol string, price double, volume double, orderType string, matchedId int);
+
+@store(type='rdbms', 
+    jdbc.url='jdbc:sqlserver://localhost:1433;databaseName=stocksDB;', 
+    username='sa', 
+    password='test@123',
+    jdbc.driver.name='com.microsoft.sqlserver.jdbc.SQLServerDriver') 
+define table Trades (symbol string, volume double, currentPrice double, sellOrderId int, buyOrderId int);
+
+@info(name='EnrichOrderStreamQuery') 
+from OrderInputStream
+select id, symbol, price, volume, orderType, ifThenElse(orderType == 's', 'b', 's') as expectedOrderType 
+insert into OrderStream;
+
+@info(name='SelectMatchingOrderQuery') 
+from OrderStream as s
+    join OrderBook as t on s.symbol == t.symbol and s.volume == t.volume and s.price == t.price and s.id != t.id and s.expectedOrderType == t.orderType
+select s.id, t.id as matchedId, s.symbol as symbol, s.volume as volume, s.price as price, s.orderType
+limit 1
+insert into MatchedOrderStream;
+
+@info(name='DeleteMatchedOrdersQuery')
+from MatchedOrderStream
+select *
+delete OrderBook 
+    on OrderBook.id == id or OrderBook.id == matchedId;
+    
+@info(name='InsertTradeStream') 
+from MatchedOrderStream
+select symbol, volume, price as currentPrice, ifThenElse(orderType == 's', id, matchedId) as sellOrderId, ifThenElse(orderType == 'b', id, matchedId) as buyOrderId
+insert into Trades;
